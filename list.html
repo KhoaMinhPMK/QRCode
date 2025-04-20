@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danh Sách Các Khối</title>
+    <link rel="stylesheet" href="style.css"> </head>
+<body>
+
+    <div class="container">
+        <h1>Danh Sách Các Khối</h1>
+
+        <p><a href="index.html">Quay lại trang tạo mã QR</a></p>
+
+        <div id="emptyListMessage" class="error-message hidden">
+            Chưa có khối nào được thêm. Vui lòng quay lại trang tạo mã QR để thêm.
+        </div>
+
+        <table id="blocksTable">
+            <thead>
+                <tr>
+                    <th>Tên khối</th>
+                    <th>Loại khối</th>
+                    <th>Cân nặng (gam)</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody id="blockTableBody">
+                </tbody>
+        </table>
+    </div>
+
+    <script src="list.js"></script>
+</body>
+</html>

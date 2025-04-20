@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tạo Mã QR Định Danh Khối</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Tạo Mã QR Định Danh Khối</h1>
+
+        <div class="form-group">
+            <label for="tenKhoi">Tên khối:</label>
+            <input type="text" id="tenKhoi" required>
+        </div>
+
+        <div class="form-group">
+            <label for="loaiKhoi">Loại khối:</label>
+            <select id="loaiKhoi" required>
+                <option value="">-- Chọn loại khối --</option>
+                <option value="Lap phuong">Lập phương</option>
+                <option value="Non tron xoay">Nón tròn xoay</option>
+                <option value="Tru tron xoay">Trụ tròn xoay</option>
+                <option value="Cau">Cầu</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="canNang">Cân nặng (gam):</label>
+            <input type="number" id="canNang" step="0.01" min="0.01" required>
+        </div>
+
+        <button id="generateQrBtn">OK</button>
+
+        <div id="outputSection" class="hidden">
+            <h2>Mã QR:</h2>
+            <div id="qrCodeContainer">
+                </div>
+
+            <h2>Dữ liệu JSON:</h2>
+            <p>Nhấn nút dưới đây để tải file JSON mô tả khối.</p>
+            <button id="downloadJsonBtn">Tải file Json</button>
+        </div>
+         <div id="errorMessage" class="error-message"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
