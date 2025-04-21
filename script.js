@@ -46,16 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update the ID display with current timestamp
     idDisplay.textContent = currentId;
     
-    // Generate QR preview (debounced to avoid excessive updates)
+    // Sửa phần updateQRPreview để sử dụng hàm generateQRCode mới
     const updateQRPreview = debounce(() => {
         if (isFormValid()) {
             const previewData = collectFormData();
             previewData.id = currentId;
-            try {
-                generateQRCode(qrPreview, previewData);
-            } catch (error) {
-                console.error("QR Preview error:", error);
-            }
+            generateQRCode(qrPreview, previewData);
         } else {
             // Clear preview if form is invalid
             qrPreview.innerHTML = '';
@@ -147,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // Handle form submission
+    // Sửa phần tạo QR code khi submit form
     generateQrBtn.addEventListener('click', (e) => {
         e.preventDefault();
         hideError();
@@ -186,17 +182,26 @@ document.addEventListener('DOMContentLoaded', () => {
             currentId = currentBlockData.id;
             idDisplay.textContent = currentId;
             
-            // Generate QR code
-            generateQRCode(qrCodeContainer, currentBlockData);
+            // Generate QR code with error handling
+            console.log('Attempting to create QR code in container:', qrCodeContainer.id);
             
-            // Display JSON preview
-            jsonPreview.textContent = JSON.stringify(currentBlockData, null, 2);
+            // Generate QR code using our utility function
+            const qrCode = generateQRCode(qrCodeContainer, currentBlockData);
             
-            // Show output section
-            outputSection.classList.remove('hidden');
-            
-            // Show success notification
-            notification.success(`Khối "${currentBlockData.tenKhoi}" đã được lưu thành công!`);
+            if (qrCode) {
+                // Show output section
+                outputSection.classList.remove('hidden');
+                
+                // Display JSON preview
+                if (jsonPreview) {
+                    jsonPreview.textContent = JSON.stringify(currentBlockData, null, 2);
+                }
+                
+                // Show success notification
+                notification.success(`Khối "${currentBlockData.tenKhoi}" đã được lưu thành công!`);
+            } else {
+                notification.error('Không thể tạo mã QR, vui lòng thử lại');
+            }
             
         } catch (error) {
             console.error("Error saving block:", error);

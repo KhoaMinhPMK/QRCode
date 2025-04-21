@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -20,33 +20,121 @@
         </header>
 
         <div class="card">
-            <div class="table-actions">
-                <a href="index.html" class="btn accent-btn"><i class="fas fa-plus"></i> Tạo khối mới</a>
-                <button id="exportAllBtn" class="btn secondary-btn"><i class="fas fa-file-export"></i> Xuất tất cả (JSON)</button>
+            <div class="list-controls">
+                <div class="search-filters">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="Tìm kiếm khối...">
+                        <button id="searchBtn"><i class="fas fa-search"></i></button>
+                    </div>
+                    
+                    <div class="filter-dropdown">
+                        <button class="filter-btn"><i class="fas fa-filter"></i> Lọc</button>
+                        <div class="filter-content">
+                            <div class="filter-group">
+                                <label>Loại khối:</label>
+                                <select id="filterType">
+                                    <option value="">Tất cả</option>
+                                    <option value="Lap phuong">Lập phương</option>
+                                    <option value="Non tron xoay">Nón tròn xoay</option>
+                                    <option value="Tru tron xoay">Trụ tròn xoay</option>
+                                    <option value="Cau">Cầu</option>
+                                    <option value="Hinh hop chu nhat">Hình hộp chữ nhật</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Chất liệu:</label>
+                                <select id="filterMaterial">
+                                    <option value="">Tất cả</option>
+                                    <option value="Go">Gỗ</option>
+                                    <option value="Nhua">Nhựa</option>
+                                    <option value="Kim loai">Kim loại</option>
+                                    <option value="Thuy tinh">Thuỷ tinh</option>
+                                    <option value="Dat set">Đất sét</option>
+                                </select>
+                            </div>
+                            <button id="applyFilterBtn" class="btn secondary-btn">Áp dụng</button>
+                        </div>
+                    </div>
+                    
+                    <div class="sort-dropdown">
+                        <button class="sort-btn"><i class="fas fa-sort"></i> Sắp xếp</button>
+                        <div class="sort-content">
+                            <div class="sort-option" data-sort="tenKhoi">
+                                <i class="fas fa-font"></i> Tên khối
+                                <span class="sort-direction"></span>
+                            </div>
+                            <div class="sort-option" data-sort="loaiKhoi">
+                                <i class="fas fa-cube"></i> Loại khối
+                                <span class="sort-direction"></span>
+                            </div>
+                            <div class="sort-option" data-sort="canNang">
+                                <i class="fas fa-weight-hanging"></i> Cân nặng
+                                <span class="sort-direction"></span>
+                            </div>
+                            <div class="sort-option" data-sort="id">
+                                <i class="fas fa-clock"></i> Mới nhất
+                                <span class="sort-direction"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <a href="index.html" class="btn accent-btn"><i class="fas fa-plus"></i> Tạo khối mới</a>
+                    <button id="exportAllBtn" class="btn secondary-btn"><i class="fas fa-file-export"></i> Xuất tất cả</button>
+                    <button id="deleteSelectedBtn" class="btn danger-btn hidden"><i class="fas fa-trash"></i> Xóa đã chọn (<span id="selectedCount">0</span>)</button>
+                </div>
+            </div>
+
+            <div class="list-stats">
+                <div class="stat-item">
+                    <i class="fas fa-cube"></i>
+                    <span>Tổng số khối: <strong id="totalBlocks">0</strong></span>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-filter"></i>
+                    <span>Đang hiển thị: <strong id="displayedBlocks">0</strong></span>
+                </div>
             </div>
 
             <div id="emptyListMessage" class="empty-message hidden">
-                <i class="fas fa-info-circle"></i> Chưa có khối nào được thêm. Vui lòng quay lại trang tạo mã QR để thêm.
+                <div class="empty-icon"><i class="fas fa-box-open"></i></div>
+                <h3>Chưa có khối nào</h3>
+                <p>Bạn chưa tạo khối nào. Nhấn vào nút "Tạo khối mới" để bắt đầu.</p>
+                <a href="index.html" class="btn primary-btn"><i class="fas fa-plus"></i> Tạo khối mới</a>
             </div>
 
-            <table id="blocksTable">
-                <thead>
-                    <tr>
-                        <th>Tên khối</th>
-                        <th>Loại khối</th>
-                        <th>Cân nặng</th>
-                        <th>ID</th>
-                        <th>Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody id="blockTableBody">
-                </tbody>
-            </table>
+            <div class="table-container">
+                <table id="blocksTable">
+                    <thead>
+                        <tr>
+                            <th class="checkbox-column">
+                                <input type="checkbox" id="selectAll">
+                            </th>
+                            <th>Tên khối</th>
+                            <th>Loại khối</th>
+                            <th>Cân nặng</th>
+                            <th>Kích thước</th>
+                            <th>Chất liệu</th>
+                            <th>ID</th>
+                            <th class="actions-column">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="blockTableBody">
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="pagination-container hidden" id="paginationContainer">
+                <button id="prevPageBtn" class="pagination-btn"><i class="fas fa-chevron-left"></i></button>
+                <div id="pageNumbers" class="page-numbers"></div>
+                <button id="nextPageBtn" class="pagination-btn"><i class="fas fa-chevron-right"></i></button>
+            </div>
         </div>
     </div>
     
     <div id="notificationContainer" class="notification-container"></div>
-
+    
     <script src="list.js" type="module"></script>
 </body>
 </html>

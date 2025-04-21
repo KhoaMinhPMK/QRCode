@@ -1,5 +1,5 @@
 /**
- * QR code generation utilities
+ * QR code generation utilities using QRious library
  */
 
 // Generate QR code and append to container
@@ -9,22 +9,45 @@ export function generateQRCode(container, data) {
         return null;
     }
     
-    // Clear any existing QR code
-    container.innerHTML = '';
+    // Log để debug
+    console.log('Generating QR for container:', container.id);
+    console.log('With data:', data);
     
     try {
-        // Create new QR code
-        return new QRCode(container, {
-            text: typeof data === 'string' ? data : JSON.stringify(data),
-            width: 256,
-            height: 256,
-            colorDark: "#000000",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
+        // Clear any existing content
+        container.innerHTML = '';
+        
+        // Create canvas element for QRious
+        const canvas = document.createElement('canvas');
+        container.appendChild(canvas);
+        
+        // Convert data to string if it's not already
+        const qrText = typeof data === 'string' ? data : JSON.stringify(data);
+        
+        // Check if QRious is available
+        if (typeof QRious === 'undefined') {
+            console.error("QRious library is not loaded!");
+            container.innerHTML = '<p style="color: red">QR Code library not loaded</p>';
+            return null;
+        }
+        
+        // Create QR code using QRious
+        const qr = new QRious({
+            element: canvas,
+            value: qrText,
+            size: 256,
+            backgroundAlpha: 1,
+            foreground: '#000000',
+            background: '#FFFFFF',
+            level: 'H' // Error correction level
         });
+        
+        console.log('QR successfully generated with QRious');
+        return qr;
+        
     } catch (error) {
         console.error("Error generating QR code:", error);
-        container.innerHTML = '<p class="qr-error">Error generating QR code</p>';
+        container.innerHTML = `<p style="color: red">Error generating QR code: ${error.message}</p>`;
         return null;
     }
 }
