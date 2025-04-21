@@ -1,197 +1,251 @@
-// script.js (Đã thêm kiểm tra trùng lặp)
+import { isDuplicateBlock, addBlock } from './utils/storage.js';
+import { generateQRCode, debounce, createJsonDownloadLink } from './utils/qrGenerator.js';
+import { Notification } from './components/notification.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Lấy các phần tử từ DOM
-    const tenKhoiInput = document.getElementById('tenKhoi');
-    const loaiKhoiSelect = document.getElementById('loaiKhoi'); // Đã sửa lỗi chính tả
-    const canNangInput = document.getElementById('canNang');
+    // Initialize components
+    const notification = new Notification();
+    notification.init();
+    
+    // Form elements
+    const form = {
+        tenKhoi: document.getElementById('tenKhoi'),
+        loaiKhoi: document.getElementById('loaiKhoi'),
+        canNang: document.getElementById('canNang'),
+        donViCanNang: document.getElementById('donViCanNang'),
+        chieuDai: document.getElementById('chieuDai'),
+        chieuRong: document.getElementById('chieuRong'),
+        chieuCao: document.getElementById('chieuCao'),
+        chatLieu: document.getElementById('chatLieu'),
+        mauSac: document.getElementById('mauSac'),
+        colorPicker: document.getElementById('colorPicker'),
+        moTa: document.getElementById('moTa')
+    };
+    
+    // UI elements
     const generateQrBtn = document.getElementById('generateQrBtn');
+    const errorMessageDiv = document.getElementById('errorMessage');
+    const idDisplay = document.getElementById('idDisplay');
+    const qrPreview = document.getElementById('qrPreview');
     const qrCodeContainer = document.getElementById('qrCodeContainer');
     const outputSection = document.getElementById('outputSection');
     const downloadJsonBtn = document.getElementById('downloadJsonBtn');
-    const errorMessageDiv = document.getElementById('errorMessage');
-
-    let currentJsonData = null; // Biến để lưu dữ liệu JSON hiện tại
-
-    // Ẩn phần kết quả ban đầu
-    outputSection.classList.add('hidden');
-    errorMessageDiv.classList.add('hidden'); // Đảm bảo ẩn lỗi ban đầu
-
-    // Hàm để lấy dữ liệu khối từ localStorage
-    function getBlocksData() {
-        const data = localStorage.getItem('qrBlocksData');
-        // Nếu không có dữ liệu, trả về mảng rỗng. Ngược lại, parse JSON string.
-        // Bắt lỗi parse JSON nếu dữ liệu trong localStorage bị hỏng
-        try {
-            return data ? JSON.parse(data) : [];
-        } catch (e) {
-            console.error("Error parsing localStorage data:", e);
-            return []; // Trả về mảng rỗng nếu parse lỗi
+    const newBlockBtn = document.getElementById('newBlockBtn');
+    const jsonPreview = document.getElementById('jsonPreview');
+    
+    // State
+    let formData = {
+        tenKhoi: '',
+        loaiKhoi: '',
+        canNang: 0,
+        donViCanNang: 'g'
+    };
+    let currentId = Date.now(); // Initial ID for preview
+    let currentBlockData = null; // Saved block data
+    
+    // Update the ID display with current timestamp
+    idDisplay.textContent = currentId;
+    
+    // Generate QR preview (debounced to avoid excessive updates)
+    const updateQRPreview = debounce(() => {
+        if (isFormValid()) {
+            const previewData = collectFormData();
+            previewData.id = currentId;
+            try {
+                generateQRCode(qrPreview, previewData);
+            } catch (error) {
+                console.error("QR Preview error:", error);
+            }
+        } else {
+            // Clear preview if form is invalid
+            qrPreview.innerHTML = '';
         }
+    }, 500);
+    
+    // Collect data from all form fields
+    function collectFormData() {
+        const data = {
+            tenKhoi: form.tenKhoi.value.trim(),
+            loaiKhoi: form.loaiKhoi.value,
+            canNang: parseFloat(form.canNang.value) || 0,
+            donViCanNang: form.donViCanNang.value,
+            kichThuoc: {}
+        };
+        
+        // Add dimensions if provided
+        if (form.chieuDai.value) data.kichThuoc.dai = parseFloat(form.chieuDai.value);
+        if (form.chieuRong.value) data.kichThuoc.rong = parseFloat(form.chieuRong.value);
+        if (form.chieuCao.value) data.kichThuoc.cao = parseFloat(form.chieuCao.value);
+        
+        // Add material if provided
+        if (form.chatLieu.value) data.chatLieu = form.chatLieu.value;
+        
+        // Add color info if provided
+        if (form.mauSac.value || form.colorPicker.value !== '#3498db') {
+            data.mauSac = {
+                moTa: form.mauSac.value,
+                maMau: form.colorPicker.value
+            };
+        }
+        
+        // Add description if provided
+        if (form.moTa.value.trim()) data.moTa = form.moTa.value.trim();
+        
+        return data;
     }
-
-    // Hàm để lưu dữ liệu khối vào localStorage
-    function saveBlocksData(blocksArray) {
-        localStorage.setItem('qrBlocksData', JSON.stringify(blocksArray));
+    
+    // Basic validation
+    function isFormValid() {
+        const tenKhoi = form.tenKhoi.value.trim();
+        const loaiKhoi = form.loaiKhoi.value;
+        const canNang = parseFloat(form.canNang.value);
+        
+        return tenKhoi !== '' && loaiKhoi !== '' && !isNaN(canNang) && canNang > 0;
     }
-
-
-    // Lắng nghe sự kiện click trên nút "OK"
-    generateQrBtn.addEventListener('click', () => {
-        // Xóa thông báo lỗi cũ và ẩn phần kết quả QR
+    
+    // Show error message
+    function showError(message) {
+        errorMessageDiv.textContent = message;
+        errorMessageDiv.classList.remove('hidden');
+    }
+    
+    // Hide error message
+    function hideError() {
         errorMessageDiv.textContent = '';
         errorMessageDiv.classList.add('hidden');
-        outputSection.classList.add('hidden');
-
-
-        // Lấy giá trị từ các trường nhập liệu
-        const tenKhoi = tenKhoiInput.value.trim();
-        const loaiKhoi = loaiKhoiSelect.value;
-        const canNangStr = canNangInput.value;
-        const canNang = parseFloat(canNangStr); // Chuyển đổi sang số thực
-
-        // --- Kiểm tra dữ liệu nhập ---
-        if (!tenKhoi) {
-            errorMessageDiv.textContent = 'Vui lòng nhập Tên khối.';
-            errorMessageDiv.classList.remove('hidden');
-            return; // Dừng lại
-        }
-
-        if (!loaiKhoi) {
-            errorMessageDiv.textContent = 'Vui lòng chọn Loại khối.';
-             errorMessageDiv.classList.remove('hidden');
-            return;
-        }
-
-        if (isNaN(canNang) || canNang <= 0) {
-            errorMessageDiv.textContent = 'Cân nặng phải là một số thực dương.';
-            errorMessageDiv.classList.remove('hidden');
-            return;
-        }
-        // --- Kết thúc kiểm tra nhập liệu ---
-
-        // Chuẩn bị dữ liệu của khối mới (đã được validate)
-        const newBlockData = {
-            // Không thêm ID ở đây, ID sẽ được thêm nếu không trùng lặp
-            tenKhoi: tenKhoi,
-            loaiKhoi: loaiKhoi,
-            canNang: canNang
-        };
-
-        // Lấy dữ liệu hiện có từ localStorage
-        const existingBlocks = getBlocksData();
-
-        // --- Kiểm tra trùng lặp ---
-        let isDuplicate = false;
-        for (const block of existingBlocks) {
-            // So sánh 3 trường: Tên khối, Loại khối, Cân nặng
-            // Sử dụng == hoặc === cho so sánh số
-            if (block.tenKhoi === newBlockData.tenKhoi &&
-                block.loaiKhoi === newBlockData.loaiKhoi &&
-                block.canNang === newBlockData.canNang) {
-                isDuplicate = true; // Đã tìm thấy khối trùng lặp
-                break; // Thoát ngay khi tìm thấy
-            }
-        }
-
-        // Nếu tìm thấy trùng lặp
-        if (isDuplicate) {
-            errorMessageDiv.textContent = 'Khối với thông tin này đã tồn tại.';
-            errorMessageDiv.classList.remove('hidden');
-            // Không làm gì thêm (không lưu, không tạo QR)
-            return; // Dừng thực thi hàm
-        }
-        // --- Kết thúc kiểm tra trùng lặp ---
-
-
-        // Nếu không trùng lặp, tiến hành thêm khối mới vào danh sách và lưu
-        newBlockData.id = Date.now(); // Thêm ID chỉ khi không trùng lặp
-
-        existingBlocks.push(newBlockData); // Thêm khối mới vào danh sách hiện có
-        saveBlocksData(existingBlocks); // Lưu danh sách đã cập nhật vào localStorage
-
-        // Lưu dữ liệu JSON của khối vừa tạo để tải sau
-        currentJsonData = newBlockData; // Sử dụng newBlockData đã có ID
-
-        // Chuyển dữ liệu thành chuỗi JSON để nhúng vào QR code
-        const jsonString = JSON.stringify(newBlockData); // Mã hóa newBlockData có ID
-
-        // --- Tạo mã QR ---
-        // Xóa mã QR cũ nếu có
-        qrCodeContainer.innerHTML = '';
-
-        // Tạo mã QR mới
-        // Đảm bảo phần tử qrCodeContainer đã tồn tại
-        if (qrCodeContainer) {
-             new QRCode(qrCodeContainer, {
-                text: jsonString, // Dữ liệu cần mã hóa
-                width: 256,      // Chiều rộng
-                height: 256,     // Chiều cao
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H // Mức sửa lỗi cao
+    }
+    
+    // Setup form change event listeners
+    function setupFormListeners() {
+        // Monitor all inputs for QR preview updates
+        const inputs = [
+            form.tenKhoi, form.loaiKhoi, form.canNang, form.donViCanNang,
+            form.chieuDai, form.chieuRong, form.chieuCao, 
+            form.chatLieu, form.mauSac, form.colorPicker, form.moTa
+        ];
+        
+        inputs.forEach(input => {
+            if (!input) return; // Skip if element doesn't exist
+            
+            const eventType = input.type === 'color' ? 'change' : 'input';
+            input.addEventListener(eventType, () => {
+                // Update ID and regenerate preview
+                currentId = Date.now();
+                idDisplay.textContent = currentId;
+                updateQRPreview();
             });
-        } else {
-            console.error("QR Code Container element not found!");
-        }
-
-        // --- Kết thúc tạo mã QR ---
-
-        // Hiển thị phần kết quả QR và nút tải JSON
-        outputSection.classList.remove('hidden');
-        errorMessageDiv.classList.add('hidden'); // Đảm bảo ẩn lỗi nếu thành công
-
-        // Tùy chọn: Xóa dữ liệu nhập sau khi tạo thành công
-        // tenKhoiInput.value = '';
-        // loaiKhoiSelect.value = '';
-        // canNangInput.value = '';
-    });
-
-    // Lắng nghe sự kiện click trên nút "Tải file Json"
-    downloadJsonBtn.addEventListener('click', () => {
-        // Nút tải này tải file JSON của khối VỪA ĐƯỢC TẠO (currentJsonData)
-        if (currentJsonData) {
-            // Tạo chuỗi JSON có định dạng đẹp (indent 2 spaces)
-            const jsonString = JSON.stringify(currentJsonData, null, 2);
-
-            // Tạo Blob từ chuỗi JSON
-            const blob = new Blob([jsonString], { type: 'application/json' });
-
-            // Tạo URL cho Blob
-            const url = URL.createObjectURL(blob);
-
-            // Tạo một thẻ 'a' ẩn để tải file
-            const a = document.createElement('a');
-            a.href = url;
-            // Sử dụng ID hoặc tên khối để đặt tên file
-            const filename = `thong_tin_${currentJsonData.id || currentJsonData.tenKhoi.replace(/\s+/g, '_').toLowerCase()}.json`;
-            a.download = filename;
-
-            document.body.appendChild(a); // Cần thêm vào DOM để click hoạt động
-            a.click(); // Kích hoạt sự kiện click để tải file
-
-            // Dọn dẹp: xóa URL và thẻ 'a'
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url); // Giải phóng bộ nhớ
-        }
-    });
-
-    // Tùy chọn: Thêm liên kết đến trang danh sách (kiểm tra xem link đã tồn tại chưa)
-    const existingLink = document.querySelector('a[href="list.html"]');
-    if (!existingLink) {
-        const listLink = document.createElement('a');
-        listLink.href = 'list.html';
-        listLink.textContent = 'Xem danh sách các khối';
-        listLink.style.display = 'block'; // Mỗi liên kết một dòng
-        listLink.style.marginTop = '20px';
-        listLink.style.textAlign = 'center';
-         // Tìm phần tử cha của nút OK để chèn liên kết vào đó
-        const okButtonParent = generateQrBtn.parentElement;
-        if(okButtonParent) {
-             okButtonParent.insertBefore(listLink, generateQrBtn.nextSibling); // Chèn sau nút OK
-        } else {
-             // Trường hợp nút OK không có cha (ít xảy ra), chèn vào body
-             document.body.appendChild(listLink);
+        });
+        
+        // Color picker special handling to update text field
+        if (form.colorPicker && form.mauSac) {
+            form.colorPicker.addEventListener('change', () => {
+                if (!form.mauSac.value) {
+                    const colorHex = form.colorPicker.value;
+                    form.mauSac.value = `Mã màu: ${colorHex}`;
+                }
+            });
         }
     }
+    
+    // Handle form submission
+    generateQrBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        hideError();
+        
+        if (!isFormValid()) {
+            if (!form.tenKhoi.value.trim()) {
+                showError('Vui lòng nhập Tên khối.');
+            } else if (!form.loaiKhoi.value) {
+                showError('Vui lòng chọn Loại khối.');
+            } else if (isNaN(parseFloat(form.canNang.value)) || parseFloat(form.canNang.value) <= 0) {
+                showError('Cân nặng phải là một số thực dương.');
+            }
+            return;
+        }
+        
+        // Collect all form data
+        const blockData = collectFormData();
+        
+        // Check for duplicates (only basic fields)
+        const basicData = {
+            tenKhoi: blockData.tenKhoi,
+            loaiKhoi: blockData.loaiKhoi,
+            canNang: blockData.canNang
+        };
+        
+        if (isDuplicateBlock(basicData)) {
+            showError('Khối với thông tin này đã tồn tại.');
+            return;
+        }
+        
+        try {
+            // Save to storage and get back data with ID
+            currentBlockData = addBlock(blockData);
+            
+            // Update displayed ID
+            currentId = currentBlockData.id;
+            idDisplay.textContent = currentId;
+            
+            // Generate QR code
+            generateQRCode(qrCodeContainer, currentBlockData);
+            
+            // Display JSON preview
+            jsonPreview.textContent = JSON.stringify(currentBlockData, null, 2);
+            
+            // Show output section
+            outputSection.classList.remove('hidden');
+            
+            // Show success notification
+            notification.success(`Khối "${currentBlockData.tenKhoi}" đã được lưu thành công!`);
+            
+        } catch (error) {
+            console.error("Error saving block:", error);
+            notification.error("Có lỗi xảy ra khi lưu khối.");
+        }
+    });
+    
+    // Download JSON button
+    downloadJsonBtn.addEventListener('click', () => {
+        if (!currentBlockData) return;
+        
+        const url = createJsonDownloadLink(currentBlockData);
+        const filename = `thong_tin_khoi_${currentBlockData.id}.json`;
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+    
+    // New block button
+    newBlockBtn.addEventListener('click', () => {
+        // Reset form
+        Object.values(form).forEach(input => {
+            if (!input) return;
+            if (input.type === 'color') {
+                input.value = '#3498db'; // Reset to default color
+            } else {
+                input.value = '';
+            }
+        });
+        
+        // Reset UI
+        currentId = Date.now();
+        idDisplay.textContent = currentId;
+        outputSection.classList.add('hidden');
+        qrPreview.innerHTML = '';
+        currentBlockData = null;
+        
+        // Focus on first field
+        form.tenKhoi.focus();
+    });
+    
+    // Initialize event listeners
+    setupFormListeners();
+    
+    // Initialize first QR preview if form is already valid (e.g. after page reload)
+    updateQRPreview();
 });

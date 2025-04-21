@@ -4,32 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Danh Sách Các Khối</title>
-    <link rel="stylesheet" href="style.css"> </head>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+</head>
 <body>
-
     <div class="container">
-        <h1>Danh Sách Các Khối</h1>
+        <header>
+            <h1><i class="fas fa-cubes"></i> Danh Sách Các Khối</h1>
+            <nav>
+                <a href="index.html"><i class="fas fa-home"></i> Trang chủ</a>
+                <a href="list.html" class="active"><i class="fas fa-list"></i> Danh sách khối</a>
+            </nav>
+        </header>
 
-        <p><a href="index.html">Quay lại trang tạo mã QR</a></p>
+        <div class="card">
+            <div class="table-actions">
+                <a href="index.html" class="btn accent-btn"><i class="fas fa-plus"></i> Tạo khối mới</a>
+                <button id="exportAllBtn" class="btn secondary-btn"><i class="fas fa-file-export"></i> Xuất tất cả (JSON)</button>
+            </div>
 
-        <div id="emptyListMessage" class="error-message hidden">
-            Chưa có khối nào được thêm. Vui lòng quay lại trang tạo mã QR để thêm.
-        </div>
+            <div id="emptyListMessage" class="empty-message hidden">
+                <i class="fas fa-info-circle"></i> Chưa có khối nào được thêm. Vui lòng quay lại trang tạo mã QR để thêm.
+            </div>
 
-        <table id="blocksTable">
-            <thead>
-                <tr>
-                    <th>Tên khối</th>
-                    <th>Loại khối</th>
-                    <th>Cân nặng (gam)</th>
-                    <th>Thao tác</th>
-                </tr>
-            </thead>
-            <tbody id="blockTableBody">
+            <table id="blocksTable">
+                <thead>
+                    <tr>
+                        <th>Tên khối</th>
+                        <th>Loại khối</th>
+                        <th>Cân nặng</th>
+                        <th>ID</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="blockTableBody">
                 </tbody>
-        </table>
+            </table>
+        </div>
     </div>
+    
+    <div id="notificationContainer" class="notification-container"></div>
 
-    <script src="list.js"></script>
+    <script src="list.js" type="module"></script>
 </body>
 </html>

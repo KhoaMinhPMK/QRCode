@@ -1,27 +1,13 @@
-// list.js
+import { getBlocksData, saveBlocksData } from './utils/storage.js';
+import { Notification } from './components/notification.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const blockTableBody = document.getElementById('blockTableBody');
-    const blocksTable = document.getElementById('blocksTable'); // Lấy cả bảng
+    const blocksTable = document.getElementById('blocksTable');
     const emptyListMessage = document.getElementById('emptyListMessage');
-
-    // Hàm để lấy dữ liệu khối từ localStorage
-    function getBlocksData() {
-        const data = localStorage.getItem('qrBlocksData');
-        // Nếu không có dữ liệu, trả về mảng rỗng. Ngược lại, parse JSON string.
-        // Bắt lỗi parse JSON nếu dữ liệu trong localStorage bị hỏng
-        try {
-            return data ? JSON.parse(data) : [];
-        } catch (e) {
-            console.error("Error parsing localStorage data:", e);
-            return []; // Trả về mảng rỗng nếu parse lỗi
-        }
-    }
-
-    // Hàm để lưu dữ liệu khối vào localStorage
-    function saveBlocksData(blocksArray) {
-        localStorage.setItem('qrBlocksData', JSON.stringify(blocksArray));
-    }
+    const notification = new Notification();
+    
+    notification.init();
 
     // Hàm hiển thị dữ liệu lên bảng
     function displayBlocks() {
@@ -31,15 +17,15 @@ document.addEventListener('DOMContentLoaded', () => {
         blockTableBody.innerHTML = '';
 
         if (blocks.length === 0) {
-            blocksTable.classList.add('hidden'); // Ẩn bảng
-            emptyListMessage.classList.remove('hidden'); // Hiển thị thông báo rỗng
+            blocksTable.classList.add('hidden');
+            emptyListMessage.classList.remove('hidden');
         } else {
-            blocksTable.classList.remove('hidden'); // Hiện bảng
-            emptyListMessage.classList.add('hidden'); // Ẩn thông báo rỗng
+            blocksTable.classList.remove('hidden');
+            emptyListMessage.classList.add('hidden');
 
             // Duyệt qua từng khối và thêm vào bảng
-            blocks.forEach((block, index) => {
-                const row = blockTableBody.insertRow(); // Thêm một hàng mới vào tbody
+            blocks.forEach((block) => {
+                const row = blockTableBody.insertRow();
 
                 // Thêm các ô dữ liệu
                 const tenKhoiCell = row.insertCell();
@@ -49,14 +35,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 loaiKhoiCell.textContent = block.loaiKhoi;
 
                 const canNangCell = row.insertCell();
-                canNangCell.textContent = block.canNang; // Hiển thị số
+                canNangCell.textContent = block.canNang;
+                
+                const idCell = row.insertCell();
+                idCell.textContent = block.id;
 
                 const actionCell = row.insertCell();
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = 'Xóa';
-                deleteButton.classList.add('delete-btn'); // Thêm class để style
-                // Gắn ID của khối vào nút Xóa để dễ dàng xác định khi click
+                deleteButton.classList.add('delete-btn');
                 deleteButton.dataset.id = block.id;
+                
+                const viewButton = document.createElement('button');
+                viewButton.textContent = 'Xem';
+                viewButton.classList.add('view-btn');
+                viewButton.dataset.id = block.id;
+                
+                actionCell.appendChild(viewButton);
                 actionCell.appendChild(deleteButton);
             });
         }
@@ -65,30 +60,117 @@ document.addEventListener('DOMContentLoaded', () => {
     // Hàm xóa khối theo ID
     function deleteBlock(id) {
         let blocks = getBlocksData();
-        // Lọc ra các khối có ID khác với ID cần xóa
+        const blockToDelete = blocks.find(block => block.id === id);
         const updatedBlocks = blocks.filter(block => block.id !== id);
-        saveBlocksData(updatedBlocks); // Lưu lại dữ liệu đã cập nhật
-        displayBlocks(); // Cập nhật lại bảng hiển thị
+        saveBlocksData(updatedBlocks);
+        displayBlocks();
+        
+        if (blockToDelete) {
+            notification.success(`Đã xóa khối "${blockToDelete.tenKhoi}"`);
+        }
     }
 
-    // Lắng nghe sự kiện click trên tbody (sử dụng Event Delegation)
-    // Giúp bắt sự kiện click của các nút Xóa được tạo động
+    // Lắng nghe sự kiện click trên tbody
     blockTableBody.addEventListener('click', (event) => {
         const target = event.target;
 
-        // Kiểm tra xem phần tử được click có phải là nút Xóa không
         if (target.classList.contains('delete-btn')) {
-            // Lấy ID từ data-id đã lưu trên nút
-            const blockId = parseInt(target.dataset.id); // Chuyển đổi ID sang số (vì Date.now() là số)
+            const blockId = parseInt(target.dataset.id);
             if (!isNaN(blockId)) {
-                 // Hiển thị hộp thoại xác nhận trước khi xóa
-                if (confirm(`Bạn có chắc chắn muốn xóa khối "${target.parentElement.previousElementSibling.previousElementSibling.previousElementSibling.textContent}"?`)) {
-                     deleteBlock(blockId); // Gọi hàm xóa
+                if (confirm(`Bạn có chắc chắn muốn xóa khối này?`)) {
+                    deleteBlock(blockId);
+                }
+            }
+        }
+        
+        if (target.classList.contains('view-btn')) {
+            const blockId = parseInt(target.dataset.id);
+            if (!isNaN(blockId)) {
+                const blocks = getBlocksData();
+                const block = blocks.find(b => b.id === blockId);
+                if (block) {
+                    // Open detail modal or redirect to detail page
+                    viewBlockDetail(block);
                 }
             }
         }
     });
+    
+    function viewBlockDetail(block) {
+        // Create modal for block detail
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        
+        const modalContent = document.createElement('div');
+        modalContent.className = 'modal-content';
+        
+        const closeBtn = document.createElement('span');
+        closeBtn.className = 'close-btn';
+        closeBtn.innerHTML = '&times;';
+        closeBtn.onclick = () => document.body.removeChild(modal);
+        
+        const title = document.createElement('h2');
+        title.textContent = `Chi tiết khối: ${block.tenKhoi}`;
+        
+        const details = document.createElement('div');
+        details.className = 'block-details';
+        details.innerHTML = `
+            <p><strong>ID:</strong> ${block.id}</p>
+            <p><strong>Tên khối:</strong> ${block.tenKhoi}</p>
+            <p><strong>Loại khối:</strong> ${block.loaiKhoi}</p>
+            <p><strong>Cân nặng:</strong> ${block.canNang} gam</p>
+        `;
+        
+        const qrContainer = document.createElement('div');
+        qrContainer.className = 'detail-qr-container';
+        
+        modalContent.appendChild(closeBtn);
+        modalContent.appendChild(title);
+        modalContent.appendChild(details);
+        modalContent.appendChild(qrContainer);
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+        
+        // Generate QR code for the block
+        setTimeout(() => {
+            new QRCode(qrContainer, {
+                text: JSON.stringify(block),
+                width: 128,
+                height: 128,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }, 100);
+    }
 
     // Hiển thị dữ liệu khi trang được tải
     displayBlocks();
+    
+    // Add export functionality
+    const exportBtn = document.getElementById('exportAllBtn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            const blocks = getBlocksData();
+            if (blocks.length === 0) {
+                notification.warning('Không có dữ liệu để xuất');
+                return;
+            }
+            
+            const jsonString = JSON.stringify(blocks, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `all_blocks_${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            notification.success('Đã xuất dữ liệu thành công');
+        });
+    }
 });
