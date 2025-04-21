@@ -1,4 +1,4 @@
-import { getBlocksData, saveBlocksData } from './utils/storage.js';
+import { getBlocksData, saveBlocksData, deleteBlock, deleteMultipleBlocks } from './utils/storage.js';
 import { Notification } from './components/notification.js';
 import { logout, getCurrentUser } from './utils/auth.js';
 
@@ -56,23 +56,28 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAndDisplayBlocks();
 
     // Load blocks and apply filters
-    function loadAndDisplayBlocks() {
-        allBlocks = getBlocksData();
-        
-        // Update total count
-        updateBlockCounts();
-        
-        // Apply filters
-        applyFilters();
-        
-        // Sort blocks
-        sortBlocks();
-        
-        // Update pagination
-        setupPagination();
-        
-        // Display blocks
-        displayBlocks();
+    async function loadAndDisplayBlocks() {
+        try {
+            allBlocks = await getBlocksData();
+            
+            // Update total count
+            updateBlockCounts();
+            
+            // Apply filters
+            applyFilters();
+            
+            // Sort blocks
+            sortBlocks();
+            
+            // Update pagination
+            setupPagination();
+            
+            // Display blocks
+            displayBlocks();
+        } catch (error) {
+            console.error("Error loading blocks:", error);
+            notification.error("Không thể tải dữ liệu khối, vui lòng thử lại sau");
+        }
     }
 
     // Apply current filters to blocks
@@ -507,34 +512,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Hàm xóa khối theo ID
-    function deleteBlock(id) {
-        let blocks = getBlocksData();
-        const blockToDelete = blocks.find(block => block.id === id);
-        const updatedBlocks = blocks.filter(block => block.id !== id);
-        saveBlocksData(updatedBlocks);
-        
-        // Reload blocks
-        loadAndDisplayBlocks();
-        
-        if (blockToDelete) {
-            notification.success(`Đã xóa khối "${blockToDelete.tenKhoi}"`);
+    async function deleteBlock(id) {
+        try {
+            const blockToDelete = allBlocks.find(block => block.id === id);
+            
+            // Delete from backend
+            await deleteBlock(id);
+            
+            // Reload blocks
+            await loadAndDisplayBlocks();
+            
+            if (blockToDelete) {
+                notification.success(`Đã xóa khối "${blockToDelete.tenKhoi}"`);
+            }
+        } catch (error) {
+            console.error("Error deleting block:", error);
+            notification.error("Không thể xóa khối, vui lòng thử lại sau");
         }
     }
     
     // Delete selected blocks
-    function deleteSelectedBlocks() {
+    async function deleteSelectedBlocks() {
         if (selectedBlocks.size === 0) return;
         
-        const blocks = getBlocksData();
-        const updatedBlocks = blocks.filter(block => !selectedBlocks.has(block.id));
-        
-        saveBlocksData(updatedBlocks);
-        selectedBlocks.clear();
-        
-        // Reload blocks
-        loadAndDisplayBlocks();
-        
-        notification.success(`Đã xóa ${blocks.length - updatedBlocks.length} khối`);
+        try {
+            const blockIds = Array.from(selectedBlocks);
+            const result = await deleteMultipleBlocks(blockIds);
+            
+            selectedBlocks.clear();
+            
+            // Reload blocks
+            await loadAndDisplayBlocks();
+            
+            notification.success(`Đã xóa ${result.count || blockIds.length} khối`);
+        } catch (error) {
+            console.error("Error deleting blocks:", error);
+            notification.error("Không thể xóa các khối đã chọn, vui lòng thử lại sau");
+        }
     }
 
     // Lắng nghe sự kiện click trên tbody
@@ -563,576 +577,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Function to view block details
-    function viewBlockDetail(block) {
-        // Create modal for block detail
-        const modal = document.createElement('div');
-        modal.className = 'modal';
-        
-        const modalContent = document.createElement('div');
-        modalContent.className = 'modal-content';
-        
-        const closeBtn = document.createElement('span');
-        closeBtn.className = 'close-btn';
-        closeBtn.innerHTML = '&times;';
-        closeBtn.onclick = () => document.body.removeChild(modal);
-        
-        // Đảm bảo modal hiển thị ở trung tâm màn hình
-        modal.style.display = 'flex';
-        modal.style.alignItems = 'center';
-        modal.style.justifyContent = 'center';
-        
-        const title = document.createElement('h2');
-        title.innerHTML = `<i class="fas fa-cube"></i> Chi tiết khối: ${block.tenKhoi}`;
-        
-        const details = document.createElement('div');
-        details.className = 'block-details';
-        
-        let detailsHTML = `
-            <div class="detail-section">
-                <h3><i class="fas fa-info-circle"></i> Thông tin cơ bản</h3>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <span class="detail-label">ID:</span>
-                        <span class="detail-value">${block.id}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Tên khối:</span>
-                        <span class="detail-value">${block.tenKhoi}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Loại khối:</span>
-                        <span class="detail-value">${getBlockTypeIcon(block.loaiKhoi)} ${block.loaiKhoi}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Cân nặng:</span>
-                        <span class="detail-value">${block.canNang} ${block.donViCanNang || 'g'}</span>
-                    </div>
-                </div>
-            </div>`;
-        
-        // Add dimensions if available
-        if (block.kichThuoc && (block.kichThuoc.dai || block.kichThuoc.rong || block.kichThuoc.cao)) {
-            detailsHTML += `
-                <div class="detail-section">
-                    <h3><i class="fas fa-ruler-combined"></i> Kích thước</h3>
-                    <div class="detail-grid">`;
-                    
-            if (block.kichThuoc.dai) {
-                detailsHTML += `
-                    <div class="detail-item">
-                        <span class="detail-label">Chiều dài:</span>
-                        <span class="detail-value">${block.kichThuoc.dai} cm</span>
-                    </div>`;
-            }
-            
-            if (block.kichThuoc.rong) {
-                detailsHTML += `
-                    <div class="detail-item">
-                        <span class="detail-label">Chiều rộng:</span>
-                        <span class="detail-value">${block.kichThuoc.rong} cm</span>
-                    </div>`;
-            }
-            
-            if (block.kichThuoc.cao) {
-                detailsHTML += `
-                    <div class="detail-item">
-                        <span class="detail-label">Chiều cao:</span>
-                        <span class="detail-value">${block.kichThuoc.cao} cm</span>
-                    </div>`;
-            }
-            
-            // Tính thể tích nếu có đủ 3 chiều
-            if (block.kichThuoc.dai && block.kichThuoc.rong && block.kichThuoc.cao) {
-                const theTich = block.kichThuoc.dai * block.kichThuoc.rong * block.kichThuoc.cao;
-                detailsHTML += `
-                    <div class="detail-item">
-                        <span class="detail-label">Thể tích:</span>
-                        <span class="detail-value">${theTich.toFixed(2)} cm³</span>
-                    </div>`;
-            }
-            
-            detailsHTML += `
-                    </div>
-                </div>`;
-        }
-        
-        // Add material and color if available
-        if (block.chatLieu || (block.mauSac && (block.mauSac.moTa || block.mauSac.maMau))) {
-            detailsHTML += `
-                <div class="detail-section">
-                    <h3><i class="fas fa-palette"></i> Vật liệu & Màu sắc</h3>
-                    <div class="detail-grid">`;
-            
-            if (block.chatLieu) {
-                detailsHTML += `
-                    <div class="detail-item">
-                        <span class="detail-label">Chất liệu:</span>
-                        <span class="detail-value">${block.chatLieu}</span>
-                    </div>`;
-            }
-            
-            if (block.mauSac) {
-                // Hiển thị màu với mẫu màu thực tế
-                const colorDisplay = block.mauSac.maMau ? 
-                    `<span class="color-sample" style="background-color: ${block.mauSac.maMau}"></span> ${block.mauSac.moTa || block.mauSac.maMau}` : 
-                    block.mauSac.moTa || '-';
-                    
-                detailsHTML += `
-                    <div class="detail-item detail-color">
-                        <span class="detail-label">Màu sắc:</span>
-                        <span class="detail-value">${colorDisplay}</span>
-                    </div>`;
-                    
-                // Thêm mã màu riêng nếu có cả mã và mô tả
-                if (block.mauSac.maMau && block.mauSac.moTa) {
-                    detailsHTML += `
-                        <div class="detail-item">
-                            <span class="detail-label">Mã màu:</span>
-                            <span class="detail-value">${block.mauSac.maMau}</span>
-                        </div>`;
-                }
-            }
-            
-            detailsHTML += `
-                    </div>
-                </div>`;
-        }
-        
-        // Add description if available
-        if (block.moTa) {
-            detailsHTML += `
-                <div class="detail-section">
-                    <h3><i class="fas fa-align-left"></i> Mô tả</h3>
-                    <p class="block-description">${block.moTa}</p>
-                </div>`;
-        }
-        
-        details.innerHTML = detailsHTML;
-        
-        // JSON data preview
-        const jsonSection = document.createElement('div');
-        jsonSection.className = 'detail-section json-section';
-        
-        const jsonTitle = document.createElement('h3');
-        jsonTitle.innerHTML = '<i class="fas fa-code"></i> Dữ liệu JSON';
-        
-        const jsonToggle = document.createElement('button');
-        jsonToggle.className = 'btn outline-btn json-toggle-btn';
-        jsonToggle.innerHTML = '<i class="fas fa-code"></i> Xem dữ liệu JSON';
-        jsonToggle.onclick = () => {
-            const jsonData = document.getElementById('jsonData');
-            if (jsonData.classList.contains('hidden')) {
-                jsonData.classList.remove('hidden');
-                jsonToggle.innerHTML = '<i class="fas fa-code-slash"></i> Ẩn dữ liệu JSON';
-            } else {
-                jsonData.classList.add('hidden');
-                jsonToggle.innerHTML = '<i class="fas fa-code"></i> Xem dữ liệu JSON';
-            }
-        };
-        
-        const jsonData = document.createElement('pre');
-        jsonData.id = 'jsonData';
-        jsonData.className = 'json-preview hidden';
-        jsonData.textContent = JSON.stringify(block, null, 2);
-        
-        jsonSection.appendChild(jsonTitle);
-        jsonSection.appendChild(jsonToggle);
-        jsonSection.appendChild(jsonData);
-        
-        // QR code container
-        const qrSection = document.createElement('div');
-        qrSection.className = 'detail-section qr-section';
-        
-        const qrTitle = document.createElement('h3');
-        qrTitle.innerHTML = '<i class="fas fa-qrcode"></i> Mã QR';
-        
-        const qrContainer = document.createElement('div');
-        qrContainer.className = 'detail-qr-container';
-        
-        qrSection.appendChild(qrTitle);
-        qrSection.appendChild(qrContainer);
-        
-        // Action buttons
-        const actionButtons = document.createElement('div');
-        actionButtons.className = 'modal-actions';
-        
-        const editButton = document.createElement('button');
-        editButton.innerHTML = '<i class="fas fa-edit"></i> Sửa';
-        editButton.className = 'btn accent-btn';
-        editButton.onclick = () => {
-            // Redirect to edit page with block ID
-            window.location.href = `index.html?edit=${block.id}`;
-        };
-        
-        const downloadQRBtn = document.createElement('button');
-        downloadQRBtn.innerHTML = '<i class="fas fa-download"></i> Tải mã QR';
-        downloadQRBtn.className = 'btn secondary-btn';
-        downloadQRBtn.onclick = () => {
-            downloadQRCode(qrContainer.querySelector('canvas'), `qr_${block.tenKhoi.replace(/\s+/g, '_').toLowerCase()}`);
-        };
-        
-        const downloadJSONBtn = document.createElement('button');
-        downloadJSONBtn.innerHTML = '<i class="fas fa-file-download"></i> Tải JSON';
-        downloadJSONBtn.className = 'btn outline-btn';
-        downloadJSONBtn.onclick = () => {
-            downloadJSON(block);
-        };
-        
-        const printBtn = document.createElement('button');
-        printBtn.innerHTML = '<i class="fas fa-print"></i> In';
-        printBtn.className = 'btn tertiary-btn';
-        printBtn.onclick = () => {
-            printBlockDetail(block);
-        };
-        
-        actionButtons.appendChild(editButton);
-        actionButtons.appendChild(downloadQRBtn);
-        actionButtons.appendChild(downloadJSONBtn);
-        actionButtons.appendChild(printBtn);
-        
-        // Combine all elements
-        modalContent.appendChild(closeBtn);
-        modalContent.appendChild(title);
-        modalContent.appendChild(details);
-        modalContent.appendChild(qrSection);
-        modalContent.appendChild(jsonSection);
-        modalContent.appendChild(actionButtons);
-        modal.appendChild(modalContent);
-        
-        // Thêm modal vào body và đảm bảo nó hiển thị đúng vị trí
-        document.body.appendChild(modal);
-        
-        // Đảm bảo scroll về đầu modal
-        modalContent.scrollTop = 0;
-        
-        // Generate QR code for the block with QRious
-        try {
-            if (typeof QRious === 'undefined') {
-                console.error("QRious library not loaded in list view");
-                qrContainer.innerHTML = '<p style="color: red">QR Code library not loaded</p>';
-                return;
-            }
-            
-            // Create canvas for QR code
-            const canvas = document.createElement('canvas');
-            qrContainer.appendChild(canvas);
-            
-            // Generate QR code
-            new QRious({
-                element: canvas,
-                value: JSON.stringify(block),
-                size: 200,
-                backgroundAlpha: 1,
-                foreground: '#000000',
-                background: '#FFFFFF',
-                level: 'H' // Error correction level
-            });
-            
-            console.log("Modal QR code generated successfully with QRious");
-        } catch (error) {
-            console.error("Error generating QR code in modal:", error);
-            qrContainer.innerHTML = `<p style="color: red">Error generating QR code: ${error.message}</p>`;
-        }
-    }
-    
-    // Show QR Modal
-    function showQRModal(block) {
-        // Create modal
-        const modal = document.createElement('div');
-        modal.className = 'modal qr-modal';
-        
-        const modalContent = document.createElement('div');
-        modalContent.className = 'modal-content';
-        
-        // Đảm bảo modal hiển thị ở trung tâm màn hình
-        modal.style.display = 'flex';
-        modal.style.alignItems = 'center';
-        modal.style.justifyContent = 'center';
-        
-        const closeBtn = document.createElement('span');
-        closeBtn.className = 'close-btn';
-        closeBtn.innerHTML = '&times;';
-        closeBtn.onclick = () => document.body.removeChild(modal);
-        
-        const title = document.createElement('h2');
-        title.innerHTML = `<i class="fas fa-qrcode"></i> Mã QR: ${block.tenKhoi}`;
-        
-        const qrContainer = document.createElement('div');
-        qrContainer.className = 'qr-container-large';
-        
-        // Info text
-        const infoText = document.createElement('p');
-        infoText.className = 'qr-info';
-        infoText.textContent = 'Quét mã QR để xem thông tin khối';
-        
-        // Block summary
-        const blockSummary = document.createElement('div');
-        blockSummary.className = 'qr-block-summary';
-        
-        let summaryContent = `
-            <div class="summary-details">
-                <p><strong>ID:</strong> ${block.id}</p>
-                <p><strong>Loại khối:</strong> ${block.loaiKhoi}</p>
-                <p><strong>Cân nặng:</strong> ${block.canNang} ${block.donViCanNang || 'g'}</p>
-        `;
-        
-        if (block.kichThuoc) {
-            const dimensions = [];
-            if (block.kichThuoc.dai) dimensions.push(`D: ${block.kichThuoc.dai}cm`);
-            if (block.kichThuoc.rong) dimensions.push(`R: ${block.kichThuoc.rong}cm`);
-            if (block.kichThuoc.cao) dimensions.push(`C: ${block.kichThuoc.cao}cm`);
-            
-            if (dimensions.length > 0) {
-                summaryContent += `<p><strong>Kích thước:</strong> ${dimensions.join(' × ')}</p>`;
-            }
-        }
-        
-        if (block.chatLieu) {
-            summaryContent += `<p><strong>Chất liệu:</strong> ${block.chatLieu}</p>`;
-        }
-        
-        if (block.mauSac && block.mauSac.maMau) {
-            summaryContent += `
-                <p class="color-line">
-                    <strong>Màu sắc:</strong>
-                    <span class="color-sample" style="background-color: ${block.mauSac.maMau}"></span>
-                    ${block.mauSac.moTa || block.mauSac.maMau}
-                </p>
-            `;
-        } else if (block.mauSac && block.mauSac.moTa) {
-            summaryContent += `<p><strong>Màu sắc:</strong> ${block.mauSac.moTa}</p>`;
-        }
-        
-        summaryContent += `</div>`;
-        blockSummary.innerHTML = summaryContent;
-        
-        // Download buttons
-        const buttonsContainer = document.createElement('div');
-        buttonsContainer.className = 'qr-modal-actions';
-        
-        const downloadQRBtn = document.createElement('button');
-        downloadQRBtn.className = 'btn secondary-btn';
-        downloadQRBtn.innerHTML = '<i class="fas fa-download"></i> Tải mã QR';
-        downloadQRBtn.onclick = () => {
-            downloadQRCode(qrContainer.querySelector('canvas'), `qr_${block.tenKhoi.replace(/\s+/g, '_').toLowerCase()}`);
-        };
-        
-        const printQRBtn = document.createElement('button');
-        printQRBtn.className = 'btn outline-btn';
-        printQRBtn.innerHTML = '<i class="fas fa-print"></i> In mã QR';
-        printQRBtn.onclick = () => {
-            printQRCode(block);
-        };
-        
-        const viewDetailsBtn = document.createElement('button');
-        viewDetailsBtn.className = 'btn tertiary-btn';
-        viewDetailsBtn.innerHTML = '<i class="fas fa-eye"></i> Xem chi tiết';
-        viewDetailsBtn.onclick = () => {
-            document.body.removeChild(modal);
-            viewBlockDetail(block);
-        };
-        
-        buttonsContainer.appendChild(downloadQRBtn);
-        buttonsContainer.appendChild(printQRBtn);
-        buttonsContainer.appendChild(viewDetailsBtn);
-        
-        // Combine elements
-        modalContent.appendChild(closeBtn);
-        modalContent.appendChild(title);
-        modalContent.appendChild(qrContainer);
-        modalContent.appendChild(infoText);
-        modalContent.appendChild(blockSummary);
-        modalContent.appendChild(buttonsContainer);
-        modal.appendChild(modalContent);
-        document.body.appendChild(modal);
-        
-        // Generate QR code
-        try {
-            const canvas = document.createElement('canvas');
-            qrContainer.appendChild(canvas);
-            
-            new QRious({
-                element: canvas,
-                value: JSON.stringify(block),
-                size: 300,
-                backgroundAlpha: 1,
-                foreground: '#000000',
-                background: '#FFFFFF',
-                level: 'H'
-            });
-        } catch (error) {
-            qrContainer.innerHTML = `<p style="color: red">Error generating QR code: ${error.message}</p>`;
-        }
-    }
-    
-    // Print QR Code
-    function printQRCode(block) {
-        const printWindow = window.open('', '_blank');
-        
-        // Create print HTML
-        let printContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Mã QR - ${block.tenKhoi}</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    line-height: 1.6;
-                    margin: 0;
-                    padding: 20px;
-                    text-align: center;
-                }
-                .print-header {
-                    margin-bottom: 20px;
-                }
-                h1 {
-                    margin: 0;
-                    color: #2c3e50;
-                }
-                .print-date {
-                    font-size: 14px;
-                    color: #666;
-                    margin-top: 5px;
-                }
-                .qr-container {
-                    margin: 20px auto;
-                }
-                .block-info {
-                    margin: 20px auto;
-                    max-width: 400px;
-                    text-align: left;
-                    border: 1px solid #eee;
-                    padding: 15px;
-                    border-radius: 5px;
-                }
-                .block-info p {
-                    margin: 5px 0;
-                }
-                .color-sample {
-                    display: inline-block;
-                    width: 14px;
-                    height: 14px;
-                    border-radius: 50%;
-                    margin-right: 6px;
-                    vertical-align: middle;
-                    border: 1px solid #ddd;
-                }
-                @media print {
-                    body {
-                        padding: 0;
-                    }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="print-header">
-                <h1>Mã QR: ${block.tenKhoi}</h1>
-                <div class="print-date">In ngày: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
-            </div>
-            
-            <div class="qr-container" id="printQrContainer"></div>
-            
-            <div class="block-info">
-                <p><strong>ID:</strong> ${block.id}</p>
-                <p><strong>Tên khối:</strong> ${block.tenKhoi}</p>
-                <p><strong>Loại khối:</strong> ${block.loaiKhoi}</p>
-                <p><strong>Cân nặng:</strong> ${block.canNang} ${block.donViCanNang || 'g'}</p>`;
-                
-        // Add dimensions if available
-        if (block.kichThuoc) {
-            const dimensions = [];
-            if (block.kichThuoc.dai) dimensions.push(`D: ${block.kichThuoc.dai}cm`);
-            if (block.kichThuoc.rong) dimensions.push(`R: ${block.kichThuoc.rong}cm`);
-            if (block.kichThuoc.cao) dimensions.push(`C: ${block.kichThuoc.cao}cm`);
-            
-            if (dimensions.length > 0) {
-                printContent += `<p><strong>Kích thước:</strong> ${dimensions.join(' × ')}</p>`;
-            }
-        }
-        
-        if (block.chatLieu) {
-            printContent += `<p><strong>Chất liệu:</strong> ${block.chatLieu}</p>`;
-        }
-        
-        if (block.mauSac && block.mauSac.maMau) {
-            printContent += `
-                <p>
-                    <strong>Màu sắc:</strong>
-                    <span class="color-sample" style="background-color: ${block.mauSac.maMau}"></span>
-                    ${block.mauSac.moTa || block.mauSac.maMau}
-                </p>
-            `;
-        } else if (block.mauSac && block.mauSac.moTa) {
-            printContent += `<p><strong>Màu sắc:</strong> ${block.mauSac.moTa}</p>`;
-        }
-        
-        printContent += `
-            </div>
-            
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-            <script>
-                // Wait for QRious to load
-                window.onload = function() {
-                    setTimeout(function() {
-                        if (typeof QRious !== 'undefined') {
-                            var container = document.getElementById('printQrContainer');
-                            var canvas = document.createElement('canvas');
-                            container.appendChild(canvas);
-                            
-                            new QRious({
-                                element: canvas,
-                                value: '${JSON.stringify(block).replace(/'/g, "\\'")}',
-                                size: 300,
-                                backgroundAlpha: 1,
-                                foreground: '#000000',
-                                background: '#FFFFFF',
-                                level: 'H'
-                            });
-                            
-                            // Auto print after QR is generated
-                            setTimeout(function() {
-                                window.print();
-                            }, 500);
-                        }
-                    }, 300);
-                };
-            </script>
-        </body>
-        </html>`;
-        
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-    }
-
-    // Download QR code as image
-    function downloadQRCode(canvas, filename) {
-        if (!canvas) return;
-        
-        const link = document.createElement('a');
-        link.download = `${filename}.png`;
-        link.href = canvas.toDataURL('image/png');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-    
-    // Download block data as JSON
-    function downloadJSON(block) {
-        const jsonString = JSON.stringify(block, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${block.tenKhoi.replace(/\s+/g, '_').toLowerCase()}_${block.id}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
     // Event Listeners
     
     // Search input
@@ -1253,26 +697,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // Export all button
     const exportBtn = document.getElementById('exportAllBtn');
     if (exportBtn) {
-        exportBtn.addEventListener('click', () => {
-            const blocks = getBlocksData();
-            if (blocks.length === 0) {
-                notification.warning('Không có dữ liệu để xuất');
-                return;
+        exportBtn.addEventListener('click', async () => {
+            try {
+                const blocks = await getBlocksData();
+                
+                if (blocks.length === 0) {
+                    notification.warning('Không có dữ liệu để xuất');
+                    return;
+                }
+                
+                const jsonString = JSON.stringify(blocks, null, 2);
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `all_blocks_${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                notification.success('Đã xuất dữ liệu thành công');
+            } catch (error) {
+                console.error("Error exporting blocks:", error);
+                notification.error("Không thể xuất dữ liệu, vui lòng thử lại sau");
             }
-            
-            const jsonString = JSON.stringify(blocks, null, 2);
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `all_blocks_${Date.now()}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            notification.success('Đã xuất dữ liệu thành công');
         });
     }
     

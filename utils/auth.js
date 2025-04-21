@@ -2,13 +2,31 @@
  * Authentication utilities
  */
 
-// Thông tin tài khoản cố định
-const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = '123';
+// API base URL
+const API_BASE_URL = 'https://guides.viegrand.site/api2/api';
 
 // Auth constants
 const AUTH_KEY = 'webqr_auth';
 const SESSION_DURATION = 3600000; // 1 hour in milliseconds
+
+// Check if API is available
+let useApiAuth = true;
+
+async function checkApiAvailability() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth`);
+        return response.ok || response.status === 401; // Consider 401 as available
+    } catch (error) {
+        console.error("Auth API unavailable:", error);
+        return false;
+    }
+}
+
+// Initialize auth
+(async function() {
+    useApiAuth = await checkApiAvailability();
+    console.log(`Using ${useApiAuth ? 'API' : 'local'} auth`);
+})();
 
 // Check if user is logged in
 export function checkAuth() {
@@ -35,23 +53,60 @@ export function checkAuth() {
 }
 
 // Login function
-export function login(username, password) {
-    // Validate credentials
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-        // Create session
-        const now = new Date().getTime();
-        const authData = {
-            username: username,
-            expires: now + SESSION_DURATION
-        };
-        
-        // Save to localStorage
-        localStorage.setItem(AUTH_KEY, JSON.stringify(authData));
-        
-        return true;
+export async function login(username, password) {
+    if (!useApiAuth) {
+        // Fallback to local authentication
+        if (username === 'admin' && password === '123') {
+            const now = new Date().getTime();
+            const authData = {
+                username: username,
+                expires: now + SESSION_DURATION
+            };
+            
+            localStorage.setItem(AUTH_KEY, JSON.stringify(authData));
+            return true;
+        }
+        return false;
     }
     
-    return false;
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        
+        if (!response.ok) {
+            return false;
+        }
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            return false;
+        }
+        
+        // Save session data
+        localStorage.setItem(AUTH_KEY, JSON.stringify(result.session));
+        
+        return true;
+    } catch (error) {
+        console.error("API login error:", error);
+        
+        // Fall back to local authentication if API fails
+        if (username === 'admin' && password === '123') {
+            const now = new Date().getTime();
+            const authData = {
+                username: username,
+                expires: now + SESSION_DURATION
+            };
+            
+            localStorage.setItem(AUTH_KEY, JSON.stringify(authData));
+            return true;
+        }
+        
+        return false;
+    }
 }
 
 // Logout function
