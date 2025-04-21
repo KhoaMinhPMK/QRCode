@@ -1,6 +1,7 @@
 import { isDuplicateBlock, addBlock } from './utils/storage.js';
 import { generateQRCode, debounce, createJsonDownloadLink } from './utils/qrGenerator.js';
 import { Notification } from './components/notification.js';
+import { logout, getCurrentUser } from './utils/auth.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize components
@@ -32,6 +33,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadJsonBtn = document.getElementById('downloadJsonBtn');
     const newBlockBtn = document.getElementById('newBlockBtn');
     const jsonPreview = document.getElementById('jsonPreview');
+    
+    // Set up authentication related elements
+    const currentUserElement = document.getElementById('currentUser');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    if (currentUserElement) {
+        currentUserElement.textContent = getCurrentUser() || 'Admin';
+    }
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                logout();
+            }
+        });
+    }
     
     // State
     let formData = {

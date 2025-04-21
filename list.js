@@ -1,5 +1,6 @@
 import { getBlocksData, saveBlocksData } from './utils/storage.js';
 import { Notification } from './components/notification.js';
+import { logout, getCurrentUser } from './utils/auth.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
@@ -21,6 +22,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextPageBtn = document.getElementById('nextPageBtn');
     const pageNumbers = document.getElementById('pageNumbers');
     const selectedCount = document.getElementById('selectedCount');
+    
+    // Set up authentication related elements
+    const currentUserElement = document.getElementById('currentUser');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    if (currentUserElement) {
+        currentUserElement.textContent = getCurrentUser() || 'Admin';
+    }
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                logout();
+            }
+        });
+    }
     
     // Initialize notification
     const notification = new Notification();

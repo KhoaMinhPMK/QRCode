@@ -14,8 +14,19 @@
         <header>
             <h1><i class="fas fa-cube"></i> Tạo Mã QR Định Danh Khối</h1>
             <nav>
-                <a href="index.html" class="active"><i class="fas fa-home"></i> Trang chủ</a>
-                <a href="list.html"><i class="fas fa-list"></i> Danh sách khối</a>
+                <div class="nav-links">
+                    <a href="index.html" class="active"><i class="fas fa-home"></i> Trang chủ</a>
+                    <a href="list.html"><i class="fas fa-list"></i> Danh sách khối</a>
+                </div>
+                <div class="user-menu">
+                    <div class="user-info">
+                        <i class="fas fa-user-circle"></i>
+                        <span id="currentUser">Admin</span>
+                    </div>
+                    <button id="logoutBtn" class="btn logout-btn">
+                        <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                    </button>
+                </div>
             </nav>
         </header>
 
@@ -159,7 +170,16 @@
 
     <div id="notificationContainer" class="notification-container"></div>
     
-    <div id="qrDebugInfo" style="display: none;"></div>
+    <!-- Check authentication before loading main script -->
+    <script src="utils/auth.js" type="module"></script>
+    <script>
+        // Simple auth check to redirect if not logged in
+        import('./utils/auth.js').then(auth => {
+            if (!auth.checkAuth()) {
+                window.location.href = 'login.html';
+            }
+        });
+    </script>
     
     <script src="script.js" type="module"></script>
 
